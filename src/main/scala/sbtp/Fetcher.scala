@@ -9,10 +9,10 @@ import sys.process._
 
 object Fetcher {
 
-  def getFeed(size: Int): LazyList[String] = s"""/opt/pierre/node-v10.16.0-linux-x64/bin/node
+  def getFeed(size: Option[Int]=None): LazyList[String] = s"""/opt/pierre/node-v10.16.0-linux-x64/bin/node
 /opt/pierre/node-v10.16.0-linux-x64/bin/ssb-server
 createLogStream
---limit $size
+${size.map(i => s"--limit $i").getOrElse("")} --reverse
 """.replace("\n", " ").lazyLines_!
 
 
@@ -30,11 +30,14 @@ createLogStream
 
 
   def main(args: Array[String]): Unit = {
-    readStream(getFeed(10000))
+    readStream(getFeed())
       .flatten
       .map(MessageTypes.parseMsgJson)
+      //.map(_.value.content)
+      .filter { _.value.content.isInstanceOf[PostContent] }
       .map(_.value.content)
-      .filter { case _: UnhandledContent => false case _ => true }
+      .collect {case c: PostContent => c}
+      .filter {_.channel.contains("mmmmm")}
       .take(50)
       .foreach(println)
   }

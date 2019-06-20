@@ -24,6 +24,17 @@ object MessageTypes {
   case class UnhandledContent(`type`: String, json: Json) extends ParsedContent
   case class ChannelContent(`type`: String, channel: String, subscribed: Boolean) extends  ParsedContent
 
+  case class Mention(link: String, name: Option[String])
+  case class PostContent(`type`: String,
+                         branch: Option[String],
+                         channel: Option[String],
+                         mentions: Option[Array[Mention]],
+                         recps: Option[String],
+                         reply: JsonObject,
+                         root: Option[String],
+                         text: String) extends ParsedContent
+
+
 
   def failedParse(m: Msg[Json], t: String): Msg[ParsedContent] = {
     m.copy[UnhandledContent](
@@ -35,6 +46,7 @@ object MessageTypes {
     (t match  {
       case "about" => m.value.content.as[AboutContent]
       case "channel" => m.value.content.as[ChannelContent]
+      case "post" => m.value.content.as[PostContent]
       case _ => Decoder.failedWithMessage("unknown type")(m.value.content.hcursor)
     })
       .toOption
