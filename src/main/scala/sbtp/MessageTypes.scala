@@ -16,23 +16,43 @@ object MessageTypes {
                           content: C,
                           signature: String)
 
-  trait ParsedContent
+  abstract class ParsedContent(val t: String)
+
+  case class UnhandledContent(`type`: String,
+                              json: Json) extends ParsedContent(`type`)
 
 
+  case class AboutContent(`type`: String,
+                          about: String,
+                          name:Option[String],
+                          image:Option[String],
+                          description: Option[String]) extends ParsedContent(`type`)
 
-  case class AboutContent(`type`: String, about: String, name:Option[String], image:Option[String], description: Option[String]) extends ParsedContent
-  case class UnhandledContent(`type`: String, json: Json) extends ParsedContent
-  case class ChannelContent(`type`: String, channel: String, subscribed: Boolean) extends  ParsedContent
 
-  case class Mention(link: String, name: Option[String])
+  case class ChannelContent(`type`: String,
+                            channel: String,
+                            subscribed: Boolean) extends  ParsedContent(`type`)
+
+  case class Mention(link: String,
+                     name: Option[String])
+
+
   case class PostContent(`type`: String,
-                         branch: Option[String],
+                         branch: Option[Array[String]],
+                         root: Option[String],
+                         fork: Option[String],
                          channel: Option[String],
                          mentions: Option[Array[Mention]],
                          recps: Option[String],
-                         reply: JsonObject,
-                         root: Option[String],
-                         text: String) extends ParsedContent
+                         reply: Option[Map[String, String]],
+                         text: String) extends ParsedContent(`type`)
+
+  case class ContactContent(`type`: String,
+                            contact: String,
+                            following: Boolean,
+                            autofollow: Option[Boolean],
+                            pub: Option[Boolean]
+                           ) extends  ParsedContent(`type`)
 
 
 
@@ -46,7 +66,14 @@ object MessageTypes {
     (t match  {
       case "about" => m.value.content.as[AboutContent]
       case "channel" => m.value.content.as[ChannelContent]
-      case "post" => m.value.content.as[PostContent]
+      case "post" => // small hack to always get an array of strings for branches
+        val x = (m.value.content.hcursor.downField("branch").as[String] match {
+          case Right(s) => m.value.content.hcursor.downField("branch").set(Json.arr(s.asJson)).up.focus.getOrElse(m.value.content)
+          case Left(_) => m.value.content
+        })
+
+        x.as[PostContent]
+      case "contact" => m.value.content.as[ContactContent]
       case _ => Decoder.failedWithMessage("unknown type")(m.value.content.hcursor)
     })
       .toOption
